@@ -128,14 +128,15 @@ class ArXivBot(object):
         entries = list(self.db.get_untweeted_entries())
         random.shuffle(entries)
         for entry in entries[:self.max_tweet]:
-            succeeded = self.twitter.tweet(self.format_entry(entry))
+            text = self.format_entry(entry)
+            succeeded = self.twitter.tweet(text)
             if succeeded:
                 entry['tweeted_at'] = datetime.datetime.now()
                 self.db.add_or_update_entry(entry)
                 count += 1
-                logger.info('tweeted: {title} ({updated_at})'.format(**entry))
+                logger.info('tweeted: {title} (len {len}, {updated_at})'.format(len=len(text), **entry))
             else:
-                logger.info('failed to tweet: {title} ({updated_at})'.format(**entry))
+                logger.error('failed to tweet: {title} (len {len}, {updated_at})'.format(len=len(text), **entry))
         return count
 
     def format_entry(self, entry):
