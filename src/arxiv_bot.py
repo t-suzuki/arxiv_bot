@@ -148,11 +148,11 @@ class ArXivBot(object):
             res = fmt.format(**entry)
         return res
 
-def arxiv_bot_job(twitter, interval_s, max_tweet):
-    logger.info('Starting arXiv bot..')
+def arxiv_bot_job(category, twitter, interval_s, max_tweet):
+    logger.info('Starting arXiv bot on [{}]..'.format(category))
     db = Entries()
     arxiv = arxiv_api.ArXiv()
-    bot = ArXivBot('cs.CV', db, arxiv, twitter, max_tweet)
+    bot = ArXivBot(category, db, arxiv, twitter, max_tweet)
     while True:
         logger.info('-'*80)
         n_fetched = bot.fetch_new_papers()
@@ -230,6 +230,8 @@ def main():
             help='recover the bot from error and continue')
     parser.add_argument('--max-tweet', default=10, type=int,
             help='limit successive tweets')
+    parser.add_argument('--category', type=str, required=True,
+            help='arXiv category to follow')
     parser.add_argument('--log', default='arxiv_bot.log', type=str,
             help='log file')
 
@@ -250,7 +252,7 @@ def main():
     # job
     while True:
         try:
-            arxiv_bot_job(twitter, args.interval, args.max_tweet)
+            arxiv_bot_job(args.category, twitter, args.interval, args.max_tweet)
         except:
             exc = traceback.format_exc()
             logger.error('Exception caught:' + exc)
