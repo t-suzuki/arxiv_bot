@@ -3,11 +3,35 @@
 import os
 import sys
 import sqlite3
+import time
 import datetime
 import random
+import argparse
+import traceback
+import logging
+import logging.handlers
 
 import arxiv_api
 import twitter_api
+
+def setup_log(log_file):
+    formatter = logging.Formatter('%(asctime)-15s [%(levelname)-8s]: %(message)s')
+    logger = logging.getLogger('arxiv_bot')
+    logger.setLevel(logging.INFO)
+
+    sh = logging.StreamHandler()
+    sh.setLevel(logging.INFO)
+    sh.setFormatter(formatter)
+    logger.addHandler(sh)
+
+    fh = logging.handlers.RotatingFileHandler(filename=log_file, maxBytes=10*1024*1024, backupCount=5)
+    fh.setLevel(logging.INFO)
+    fh.setFormatter(formatter)
+    logger.addHandler(fh)
+
+def register_logger():
+    logger = logging.getLogger('arxiv_bot')
+    globals()['logger'] = logger
 
 class Entries(object):
     def __init__(self, db_path='tweeted_entries.db'):
@@ -91,7 +115,7 @@ class ArXivBot(object):
         for entry in self.arxiv.search_query('cat:{}'.format(self.category), max_results=100, sortBy='lastUpdatedDate', sortOrder='descending'):
             was_new = self.db.add_or_update_entry(entry)
             count += 1
-            print('added: {} ({}) (new? {})'.format(entry['title'], entry['updated_at'], was_new))
+            logger.info('added: {} ({}) (new? {})'.format(entry['title'], entry['updated_at'], was_new))
         return count
 
     def tweet_untweeted(self):
@@ -105,9 +129,9 @@ class ArXivBot(object):
                 entry['tweeted_at'] = datetime.datetime.now()
                 self.db.add_or_update_entry(entry)
                 count += 1
-                print('tweeted: {title} ({updated_at})'.format(**entry))
+                logger.info('tweeted: {title} ({updated_at})'.format(**entry))
             else:
-                print('failed to tweet: {title} ({updated_at})'.format(**entry))
+                logger.info('failed to tweet: {title} ({updated_at})'.format(**entry))
         return count
 
     def format_entry(self, entry):
@@ -119,6 +143,21 @@ class ArXivBot(object):
         else:
             res = fmt.format(**entry)
         return res
+
+def arxiv_bot_job(twitter, interval_s):
+    logger.info('Starting arXiv bot..')
+    db = Entries()
+    arxiv = arxiv_api.ArXiv()
+    bot = ArXivBot('cs.CV', db, arxiv, twitter)
+    while True:
+        logger.info('-'*80)
+        n_fetched = bot.fetch_new_papers()
+        logger.info('total fetched: {}'.format(n_fetched))
+        logger.info('-'*80)
+        n_tweeted = bot.tweet_untweeted()
+        logger.info('total tweeted: {}'.format(n_tweeted))
+        logger.info('sleep {}'.format(interval_s))
+        time.sleep(interval_s)
 
 def _test_delete_db():
     db = Entries()
@@ -177,13 +216,53 @@ def _test_bot(use_dummy=True):
     n_tweeted = bot.tweet_untweeted()
     print 'total tweeted:', n_tweeted
 
+def main():
+    parser = argparse.ArgumentParser('arXiv bot')
+    parser.add_argument('--twitter', default=None, type=str,
+            help='<twitter ini file>@<section> (dummy if not specified)')
+    parser.add_argument('--interval', default=6*60*60, type=float,
+            help='sleep after iteration (s)')
+    parser.add_argument('--rebooting', action='store_true', default=False,
+            help='recover the bot from error and continue')
+    parser.add_argument('--log', default='arxiv_bot.log', type=str,
+            help='log file')
+
+    args = parser.parse_args()
+
+    twitter = None
+    if args.twitter is not None:
+        file_path, section = args.twitter.split('@')
+        twitter = twitter_api.Twitter.from_file(file_path, section)
+    if twitter is None:
+        twitter = twitter_api.DummyTwitter()
+
+    # log
+    setup_log(args.log)
+    register_logger()
+    logger.info(args)
+
+    # job
+    while True:
+        try:
+            #raise ValueError('some error')
+            arxiv_bot_job(twitter, args.interval)
+        except:
+            exc = traceback.format_exc()
+            logger.error('Exception caught:' + exc)
+            if args.rebooting:
+                logger.warn('rebooting')
+            else:
+                logger.warn('terminating')
+                break
+
 if __name__=='__main__':
     #_test_delete_db()
     #_test_add_greg_egan_papers()
     #_test_update_tweeted_at()
     #_test_get_untweeted_entries_and_tweet()
     #_test_cs_CV()
-    _test_bot()
+    #_test_bot()
+    main()
 
 
 
