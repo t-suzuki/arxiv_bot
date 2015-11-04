@@ -3,6 +3,14 @@
 import requests_oauthlib
 import ConfigParser
 
+class DummyTwitter(object):
+    def __init__(self):
+        pass
+
+    def tweet(self, message):
+        print('[DUMMY TWEET] "{}" (len:{})'.format(message, len(message)))
+        return True
+
 class Twitter(object):
     def __init__(self, consumer_key, consumer_secret, access_token, access_secret):
         self.api = requests_oauthlib.OAuth1Session(
