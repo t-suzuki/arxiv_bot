@@ -4,9 +4,12 @@
 import os
 import sys
 import time
+import datetime
 import urllib
 import urllib2
 import xml.etree.ElementTree
+
+import dateutil.parser
 
 def _throttle(delay_s):
     u'''throttled function call'''
@@ -59,6 +62,11 @@ class ArXiv(object):
             except AttributeError:
                 summary = 'N/A'
             try:
+                updated_at = dateutil.parser.parse(n.find('ns:updated', ns).text)
+            except (AttributeError, ValueError, OverflowError):
+                print( 'failed to get updated_at')
+                updated_at = datetime.datetime.now()
+            try:
                 authors = [e.find('ns:name', ns).text for e in n.findall('./ns:author', ns)]
             except AttributeError:
                 authors = []
@@ -67,6 +75,7 @@ class ArXiv(object):
                 title=title,
                 summary=summary,
                 authors=authors,
+                updated_at=updated_at,
                 ))
         return res
 
