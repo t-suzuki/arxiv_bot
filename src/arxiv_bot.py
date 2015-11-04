@@ -103,11 +103,12 @@ class Entries(object):
 
 
 class ArXivBot(object):
-    def __init__(self, category, entries_db, arxiv_api_obj, twitter_api_obj):
+    def __init__(self, category, entries_db, arxiv_api_obj, twitter_api_obj, max_tweet=10):
         self.category = category
         self.db = entries_db
         self.arxiv = arxiv_api_obj
         self.twitter = twitter_api_obj
+        self.max_tweet = max_tweet
 
     def fetch_new_papers(self):
         max_results = 100
@@ -115,15 +116,18 @@ class ArXivBot(object):
         for entry in self.arxiv.search_query('cat:{}'.format(self.category), max_results=100, sortBy='lastUpdatedDate', sortOrder='descending'):
             was_new = self.db.add_or_update_entry(entry)
             count += 1
-            logger.info('added: {} ({}) (new? {})'.format(entry['title'], entry['updated_at'], was_new))
+            msg = 'added: {} ({}) (new? {})'.format(entry['title'], entry['updated_at'], was_new)
+            if was_new:
+                logger.info(msg)
+            else:
+                logger.debug(msg)
         return count
 
     def tweet_untweeted(self):
-        max_tweet = 2
         count = 0
         entries = list(self.db.get_untweeted_entries())
         random.shuffle(entries)
-        for entry in entries[:max_tweet]:
+        for entry in entries[:self.max_tweet]:
             succeeded = self.twitter.tweet(self.format_entry(entry))
             if succeeded:
                 entry['tweeted_at'] = datetime.datetime.now()
@@ -144,11 +148,11 @@ class ArXivBot(object):
             res = fmt.format(**entry)
         return res
 
-def arxiv_bot_job(twitter, interval_s):
+def arxiv_bot_job(twitter, interval_s, max_tweet):
     logger.info('Starting arXiv bot..')
     db = Entries()
     arxiv = arxiv_api.ArXiv()
-    bot = ArXivBot('cs.CV', db, arxiv, twitter)
+    bot = ArXivBot('cs.CV', db, arxiv, twitter, max_tweet)
     while True:
         logger.info('-'*80)
         n_fetched = bot.fetch_new_papers()
@@ -224,6 +228,8 @@ def main():
             help='sleep after iteration (s)')
     parser.add_argument('--rebooting', action='store_true', default=False,
             help='recover the bot from error and continue')
+    parser.add_argument('--max-tweet', default=10, type=int,
+            help='limit successive tweets')
     parser.add_argument('--log', default='arxiv_bot.log', type=str,
             help='log file')
 
@@ -244,8 +250,7 @@ def main():
     # job
     while True:
         try:
-            #raise ValueError('some error')
-            arxiv_bot_job(twitter, args.interval)
+            arxiv_bot_job(twitter, args.interval, args.max_tweet)
         except:
             exc = traceback.format_exc()
             logger.error('Exception caught:' + exc)
