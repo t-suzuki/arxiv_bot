@@ -3,4 +3,5 @@ src/twitter.ini
 *~
 *.swp
 *.swo
+*.db
 
