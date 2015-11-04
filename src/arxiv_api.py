@@ -18,8 +18,9 @@ def _throttle(delay_s):
             funcs = getattr(_throttle, 'funcs', {})
             if funcs.has_key(f.__name__):
                 s = funcs[f.__name__] - time.time()
-                print('throttling.. delay: {:.2}'.format(s))
-                time.sleep(s)
+                if s > 0:
+                    print('throttling.. delay: {:.2}'.format(s))
+                    time.sleep(s)
             res = f(*va, **kwa)
             funcs[f.__name__] = time.time() + delay_s
             setattr(_throttle, 'funcs', funcs)
