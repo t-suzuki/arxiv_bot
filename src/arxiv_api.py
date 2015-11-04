@@ -44,9 +44,11 @@ class ArXiv(object):
         root = xml.etree.ElementTree.fromstring(body)
         return root, ns
 
-    def search_query(self, query_str):
+    def search_query(self, query_str, **kwa):
         u'''search_query API'''
-        root, ns = self.query({'search_query': query_str})
+        query_dict = dict(search_query=query_str)
+        query_dict.update(kwa)
+        root, ns = self.query(query_dict)
         res = []
         for n in root.findall('ns:entry', ns):
             try:
