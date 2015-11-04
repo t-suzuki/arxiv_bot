@@ -109,6 +109,7 @@ class ArXivBot(object):
         self.arxiv = arxiv_api_obj
         self.twitter = twitter_api_obj
         self.max_tweet = max_tweet
+        self.tweet_throttle_s = 2.0
 
     def fetch_new_papers(self):
         max_results = 100
@@ -137,6 +138,7 @@ class ArXivBot(object):
                 logger.info('tweeted: {title} (len {len}, {updated_at})'.format(len=len(text), **entry))
             else:
                 logger.error('failed to tweet: {title} (len {len}, {updated_at})'.format(len=len(text), **entry))
+            time.sleep(self.tweet_throttle_s)
         return count
 
     def format_entry(self, entry):
