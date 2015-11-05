@@ -4,20 +4,26 @@
 import requests_oauthlib
 import ConfigParser
 
+import throttle
+
 class DummyTwitter(object):
+    throttle_s = 0.5
     def __init__(self):
         pass
 
+    @throttle.throttle(throttle_s)
     def tweet(self, message):
         print('[DUMMY TWEET] "{}" (len:{})'.format(message, len(message)))
         return True
 
 class Twitter(object):
+    throttle_s = 2.0
     def __init__(self, consumer_key, consumer_secret, access_token, access_secret):
         self.api = requests_oauthlib.OAuth1Session(
                 consumer_key, consumer_secret,
                 access_token, access_secret)
 
+    @throttle.throttle(throttle_s)
     def tweet(self, message):
         url = 'https://api.twitter.com/1.1/statuses/update.json'
         req = self.api.post(url, params={'status': message})

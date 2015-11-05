@@ -11,30 +11,14 @@ import urllib2
 import xml.etree.ElementTree
 
 import dateutil.parser
-
-def _throttle(delay_s):
-    u'''throttled function call'''
-    def _wrapper(f):
-        def _f(*va, **kwa):
-            funcs = getattr(_throttle, 'funcs', {})
-            if funcs.has_key(f.__name__):
-                s = funcs[f.__name__] - time.time()
-                if s > 0:
-                    print('throttling.. delay: {:.2}'.format(s))
-                    time.sleep(s)
-            res = f(*va, **kwa)
-            funcs[f.__name__] = time.time() + delay_s
-            setattr(_throttle, 'funcs', funcs)
-            return res
-        return _f
-    return _wrapper
+import throttle
 
 class ArXiv(object):
     throttle_s = 2.0
     def __init__(self, base_url='http://export.arxiv.org/api/query'):
         self.base_url = base_url
 
-    @_throttle(throttle_s)
+    @throttle.throttle(throttle_s)
     def query(self, options):
         u'''access to arXiv and get the Atom response'''
         url = '{}?{}'.format(self.base_url, '&'.join('{}={}'.format(k, v) for k, v in options.items()))

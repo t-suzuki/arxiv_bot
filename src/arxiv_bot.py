@@ -17,7 +17,7 @@ import twitter_api
 
 def setup_log(log_file):
     formatter = logging.Formatter('%(asctime)-15s [%(levelname)-8s]: %(message)s')
-    logger = logging.getLogger('arxiv_bot')
+    logger = logging.getLogger()
     logger.setLevel(logging.INFO)
 
     sh = logging.StreamHandler()
@@ -31,7 +31,7 @@ def setup_log(log_file):
     logger.addHandler(fh)
 
 def register_logger():
-    logger = logging.getLogger('arxiv_bot')
+    logger = logging.getLogger()
     globals()['logger'] = logger
 
 class Entries(object):
@@ -110,7 +110,6 @@ class ArXivBot(object):
         self.arxiv = arxiv_api_obj
         self.twitter = twitter_api_obj
         self.max_tweet = max_tweet
-        self.tweet_throttle_s = 2.0
 
     def fetch_new_papers(self):
         max_results = 100
@@ -139,7 +138,6 @@ class ArXivBot(object):
                 logger.info('tweeted: {title} (len {len}, {updated_at})'.format(len=len(text), **entry))
             else:
                 logger.error('failed to tweet: {title} (len {len}, {updated_at})'.format(len=len(text), **entry))
-            time.sleep(self.tweet_throttle_s)
         return count
 
     def format_entry(self, entry):
@@ -224,6 +222,15 @@ def _test_bot(use_dummy=True):
     n_tweeted = bot.tweet_untweeted()
     print 'total tweeted:', n_tweeted
 
+def _test_throttle():
+    #setup_log('arxiv_bot.log')
+    import throttle
+    @throttle.throttle(2.0)
+    def a(): print 'a'
+    a()
+    a()
+    a()
+
 def main():
     parser = argparse.ArgumentParser('arXiv bot')
     parser.add_argument('--twitter', default=None, type=str,
@@ -273,6 +280,7 @@ if __name__=='__main__':
     #_test_get_untweeted_entries_and_tweet()
     #_test_cs_CV()
     #_test_bot()
+    #_test_throttle()
     main()
 
 
