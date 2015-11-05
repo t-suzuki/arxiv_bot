@@ -1,4 +1,5 @@
 #!env python
+# -*- coding: utf-8 -*-
 # arXiv API wrapper with limited functionalities.
 # reference: http://arxiv.org/help/api/index
 import os

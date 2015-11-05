@@ -1,4 +1,5 @@
 #!env python
+# -*- coding: utf-8 -*-
 # tweet new papers in arXiv cs.CV
 import os
 import sys

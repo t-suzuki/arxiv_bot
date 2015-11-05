@@ -1,4 +1,5 @@
 #!env python
+# -*- coding: utf-8 -*-
 # simple Twitter client using requests_oauthlib.
 import requests_oauthlib
 import ConfigParser
