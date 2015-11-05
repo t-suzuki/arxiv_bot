@@ -6,7 +6,6 @@ import sys
 import sqlite3
 import time
 import datetime
-import random
 import argparse
 import traceback
 import logging
@@ -89,7 +88,7 @@ class Entries(object):
     def get_untweeted_entries(self, latest_first=True):
         entries = []
         with self.conn:
-            for row in self.conn.execute('SELECT url, title, authors, summary, updated_at, tweeted_at FROM entries WHERE tweeted_at = "" ORDER BY date(updated_at) {}'.format('DESC' if latest_first else 'ASC')):
+            for row in self.conn.execute('SELECT url, title, authors, summary, updated_at, tweeted_at FROM entries WHERE tweeted_at = "" ORDER BY datetime(updated_at) {}'.format('DESC' if latest_first else 'ASC')):
                 entry = self.parse_entry(row)
                 entries.append(entry)
         return entries
@@ -131,9 +130,7 @@ class ArXivBot(object):
 
     def tweet_untweeted(self):
         count = 0
-        entries = list(self.db.get_untweeted_entries())
-        random.shuffle(entries)
-        for entry in entries[:self.max_tweet]:
+        for entry in self.db.get_untweeted_entries(latest_first=False)[:self.max_tweet]:
             text = self.format_entry(entry)
             succeeded = self.twitter.tweet(text)
             if succeeded:
@@ -182,7 +179,7 @@ def arxiv_tweet_action(bot, db):
 def list_db_action(bot, db):
     logger.info('List entries in DB..')
     n_entries = db.get_total_entries()
-    entries = list(db.get_untweeted_entries())
+    entries = list(db.get_untweeted_entries(latest_first=False))
     logger.info('-'*80)
     logger.info('untweeted/total: {}/{} entries'.format(len(entries), n_entries))
     for e in entries:
