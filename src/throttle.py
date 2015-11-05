@@ -17,7 +17,7 @@ def throttle(delay_s):
                     if log is None:
                         print(msg)
                     else:
-                        log.warn(msg)
+                        log.debug(msg)
                     time.sleep(s)
             res = f(*va, **kwa)
             funcs[f.__name__] = time.time() + delay_s

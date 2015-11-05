@@ -22,7 +22,7 @@ class ArXiv(object):
     def query(self, options):
         u'''access to arXiv and get the Atom response'''
         url = '{}?{}'.format(self.base_url, '&'.join('{}={}'.format(k, v) for k, v in options.items()))
-        print url
+        #print url
         res = urllib2.urlopen(url)
         body = res.read()
 
