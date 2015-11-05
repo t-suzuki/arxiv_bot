@@ -81,10 +81,15 @@ class Entries(object):
                 self.conn.execute('INSERT INTO entries VALUES (?, ?, ?, ?, ?, ?)', entry_tuple)
             return True
 
-    def get_untweeted_entries(self):
+    def get_total_entries(self):
+        with self.conn:
+            for row in self.conn.execute('SELECT count(url) FROM entries'):
+                return row[0]
+
+    def get_untweeted_entries(self, latest_first=True):
         entries = []
         with self.conn:
-            for row in self.conn.execute('SELECT url, title, authors, summary, updated_at, tweeted_at FROM entries WHERE tweeted_at = ""'):
+            for row in self.conn.execute('SELECT url, title, authors, summary, updated_at, tweeted_at FROM entries WHERE tweeted_at = "" ORDER BY date(updated_at) {}'.format('DESC' if latest_first else 'ASC')):
                 entry = self.parse_entry(row)
                 entries.append(entry)
         return entries
@@ -104,17 +109,17 @@ class Entries(object):
 
 
 class ArXivBot(object):
-    def __init__(self, category, entries_db, arxiv_api_obj, twitter_api_obj, max_tweet=10):
+    def __init__(self, category, entries_db, arxiv_api_obj, twitter_api_obj, max_tweet=10, max_fetch=100):
         self.category = category
         self.db = entries_db
         self.arxiv = arxiv_api_obj
         self.twitter = twitter_api_obj
         self.max_tweet = max_tweet
+        self.max_fetch = max_fetch
 
     def fetch_new_papers(self):
-        max_results = 100
         count = 0
-        for entry in self.arxiv.search_query('cat:{}'.format(self.category), max_results=100, sortBy='lastUpdatedDate', sortOrder='descending'):
+        for entry in self.arxiv.search_query('cat:{}'.format(self.category), max_results=self.max_fetch, sortBy='lastUpdatedDate', sortOrder='descending'):
             was_new = self.db.add_or_update_entry(entry)
             count += 1
             msg = 'added: {} ({}) (new? {})'.format(entry['title'], entry['updated_at'], was_new)
@@ -150,11 +155,8 @@ class ArXivBot(object):
             res = fmt.format(**entry)
         return res
 
-def arxiv_bot_job(category, twitter, interval_s, max_tweet):
-    logger.info('Starting arXiv bot on [{}]..'.format(category))
-    db = Entries()
-    arxiv = arxiv_api.ArXiv()
-    bot = ArXivBot(category, db, arxiv, twitter, max_tweet)
+def arxiv_bot_job(bot, db, interval_s):
+    logger.info('Starting arXiv bot on [{}]..'.format(bot.category))
     while True:
         logger.info('-'*80)
         n_fetched = bot.fetch_new_papers()
@@ -164,6 +166,27 @@ def arxiv_bot_job(category, twitter, interval_s, max_tweet):
         logger.info('total tweeted: {}'.format(n_tweeted))
         logger.info('sleep {}'.format(interval_s))
         time.sleep(interval_s)
+
+def arxiv_fetch_action(bot, db):
+    logger.info('Starting arXiv fetch on [{}]..'.format(bot.category))
+    logger.info('-'*80)
+    n_fetched = bot.fetch_new_papers()
+    logger.info('total fetched: {}'.format(n_fetched))
+
+def arxiv_tweet_action(bot, db):
+    logger.info('Starting arXiv tweet..')
+    n_tweeted = bot.tweet_untweeted()
+    logger.info('-'*80)
+    logger.info('total tweeted: {}'.format(n_tweeted))
+
+def list_db_action(bot, db):
+    logger.info('List entries in DB..')
+    n_entries = db.get_total_entries()
+    entries = list(db.get_untweeted_entries())
+    logger.info('-'*80)
+    logger.info('untweeted/total: {}/{} entries'.format(len(entries), n_entries))
+    for e in entries:
+        logger.info(' "{}" ({})'.format(e['title'], e['updated_at']))
 
 def _test_delete_db():
     db = Entries()
@@ -241,37 +264,62 @@ def main():
             help='recover the bot from error and continue')
     parser.add_argument('--max-tweet', default=10, type=int,
             help='limit successive tweets')
+    parser.add_argument('--max-fetch', default=100, type=int,
+            help='limit arXiv fetch entries')
     parser.add_argument('--category', type=str, required=True,
             help='arXiv category to follow')
     parser.add_argument('--log', default='arxiv_bot.log', type=str,
             help='log file')
+    parser.add_argument('action', type=str,
+            help='RUN | FETCH | TWEET | LIST')
 
     args = parser.parse_args()
-
-    twitter = None
-    if args.twitter is not None:
-        file_path, section = args.twitter.split('@')
-        twitter = twitter_api.Twitter.from_file(file_path, section)
-    if twitter is None:
-        twitter = twitter_api.DummyTwitter()
 
     # log
     setup_log(args.log)
     register_logger()
     logger.info(args)
 
-    # job
-    while True:
-        try:
-            arxiv_bot_job(args.category, twitter, args.interval, args.max_tweet)
-        except:
-            exc = traceback.format_exc()
-            logger.error('Exception caught:' + exc)
-            if args.rebooting:
-                logger.warn('rebooting')
-            else:
-                logger.warn('terminating')
-                break
+    # twitter
+    twitter = None
+    if args.twitter is not None:
+        file_path, section = args.twitter.split('@')
+        twitter = twitter_api.Twitter.from_file(file_path, section)
+        logger.info('using real Twitter as twitter client')
+    if twitter is None:
+        twitter = twitter_api.DummyTwitter()
+        logger.warn('using DummyTwitter as twitter client')
+
+    # action type
+    if args.action not in ['RUN', 'FETCH', 'TWEET', 'LIST']:
+        logger.error('invalid action: {}'.format(args.action))
+        sys.exit(0)
+    else:
+        logger.info('action: {}'.format(args.action))
+
+    # create bot
+    db = Entries()
+    arxiv = arxiv_api.ArXiv()
+    bot = ArXivBot(args.category, db, arxiv, twitter, args.max_tweet, args.max_fetch)
+
+    if args.action == 'FETCH':
+        arxiv_fetch_action(bot, db)
+    if args.action == 'TWEET':
+        arxiv_tweet_action(bot, db)
+    if args.action == 'LIST':
+        list_db_action(bot, db)
+    elif args.action == 'RUN':
+        while True:
+            try:
+                arxiv_bot_job(bot, db, args.interval)
+            except:
+                exc = traceback.format_exc()
+                logger.error('Exception caught:' + exc)
+                if args.rebooting:
+                    logger.warn('rebooting')
+                else:
+                    logger.warn('terminating')
+                    break
 
 if __name__=='__main__':
     #_test_delete_db()
