@@ -72,8 +72,8 @@ class Entries(object):
                 )
         if self.has_entry(entry['url']):
             with self.conn:
-                self.conn.execute('UPDATE entries SET title=?, authors=?, summary=?, updated_at=?, tweeted_at=? WHERE url=?',
-                        entry_tuple[1:] + entry_tuple[:1])
+                self.conn.execute('UPDATE entries SET title=?, authors=?, summary=?, updated_at=? WHERE url=?',
+                        entry_tuple[1:-1] + entry_tuple[:1])
             return False
         else:
             with self.conn:
