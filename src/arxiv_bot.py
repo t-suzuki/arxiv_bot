@@ -74,6 +74,8 @@ class Entries(object):
             with self.conn:
                 self.conn.execute('UPDATE entries SET title=?, authors=?, summary=?, updated_at=? WHERE url=?',
                         entry_tuple[1:-1] + entry_tuple[:1])
+                if entry.get('tweeted_at', '') != '':
+                    self.conn.execute('UPDATE entries SET tweeted_at=? WHERE url=?', (entry_tuple[-1], entry_tuple[0]))
             return False
         else:
             with self.conn:
