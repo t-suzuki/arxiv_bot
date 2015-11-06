@@ -278,12 +278,14 @@ def main():
     logger.info(args)
 
     # twitter
-    twitter = None
     if args.twitter is not None:
         file_path, section = args.twitter.split('@')
         twitter = twitter_api.Twitter.from_file(file_path, section)
+        if twitter is None:
+            logger.error('failed to create twitter client')
+            sys.exit(0)
         logger.info('using real Twitter as twitter client')
-    if twitter is None:
+    else:
         twitter = twitter_api.DummyTwitter()
         logger.warn('using DummyTwitter as twitter client')
 
