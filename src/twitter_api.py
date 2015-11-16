@@ -13,7 +13,7 @@ class DummyTwitter(object):
 
     @throttle.throttle(throttle_s)
     def tweet(self, message):
-        print('[DUMMY TWEET] "{}" (len:{})'.format(message, len(message)))
+        print(u'[DUMMY TWEET] "{}" (len:{})'.format(message, len(message)).encode('utf-8', 'ignore'))
         return True
 
 class Twitter(object):
@@ -26,7 +26,7 @@ class Twitter(object):
     @throttle.throttle(throttle_s)
     def tweet(self, message):
         url = 'https://api.twitter.com/1.1/statuses/update.json'
-        req = self.api.post(url, params={'status': message})
+        req = self.api.post(url, params={'status': unicode(message).encode('utf-8', 'ignore')})
         if req.status_code == 200:
             return True
         return False

@@ -123,7 +123,7 @@ class ArXivBot(object):
         for entry in self.arxiv.search_query('cat:{}'.format(self.category), max_results=self.max_fetch, sortBy='lastUpdatedDate', sortOrder='descending'):
             was_new = self.db.add_or_update_entry(entry)
             count += 1
-            msg = 'added: {} ({}) (new? {})'.format(entry['title'], entry['updated_at'], was_new)
+            msg = u'added: {} ({}) (new? {})'.format(entry['title'], entry['updated_at'], was_new).encode('utf-8', 'ignore')
             if was_new:
                 logger.info(msg)
             else:
@@ -139,14 +139,14 @@ class ArXivBot(object):
                 entry['tweeted_at'] = datetime.datetime.now()
                 self.db.add_or_update_entry(entry)
                 count += 1
-                logger.info('tweeted: {title} (len {len}, {updated_at})'.format(len=len(text), **entry))
+                logger.info(u'tweeted: {title} (len {len}, {updated_at})'.format(len=len(text), **entry).encode('utf-8', 'ignore'))
             else:
-                logger.error('failed to tweet: {title} (len {len}, {updated_at})'.format(len=len(text), **entry))
+                logger.error(u'failed to tweet: {title} (len {len}, {updated_at})'.format(len=len(text), **entry).encode('utf-8', 'ignore'))
         return count
 
     def format_entry(self, entry):
         max_len = 140
-        fmt = '{title}. {url}'
+        fmt = u'{title}. {url}'
         exceed = len(fmt.format(**entry)) - max_len
         if exceed > 0:
             res = fmt.format(title=entry['title'][:-exceed-2]+'..', url=entry['url'])
@@ -185,7 +185,7 @@ def list_db_action(bot, db):
     logger.info('-'*80)
     logger.info('untweeted/total: {}/{} entries'.format(len(entries), n_entries))
     for e in entries:
-        logger.info(' "{}" ({})'.format(e['title'], e['updated_at']))
+        logger.info(u' "{}" ({})'.format(e['title'], e['updated_at']).encode('utf-8', 'ignore'))
 
 def _test_delete_db():
     db = Entries()
